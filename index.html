@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Solving Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .tracker {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .tracker button {
+            font-size: 24px;
+            padding: 10px;
+            margin: 0 10px;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .tracker button:hover {
+            background-color: #0056b3;
+        }
+        .tracker span {
+            font-size: 24px;
+            margin: 0 10px;
+        }
+        .calendar, .chart-box, .summary, .goals {
+            margin-bottom: 20px;
+        }
+        .calendar h2, .chart-box h2, .summary h2, .goals h2 {
+            text-align: center;
+        }
+        .calendar-controls, .goal-inputs, .summary-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calendar-controls button, .goal-inputs button {
+            font-size: 16px;
+            padding: 5px 10px;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .calendar-controls button:hover, .goal-inputs button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        td.inactive {
+            background-color: #e9e9e9;
+        }
+        td.active {
+            background-color: #cce5ff;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .chart-box, .calendar {
+            width: 48%;
+            padding: 20px;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        canvas {
+            width: 100% !important;
+            height: 400px !important;
+        }
+        .income, .goals, .summary {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .income span, .goals span, .summary span {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .goals input {
+            padding: 5px;
+            margin: 5px;
+        }
+        .goals button {
+            font-size: 16px;
+            padding: 5px 10px;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .goals button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let questionsSolved = 0;
+        let satisfiedSolves = 0;
+        const dailyLog = JSON.parse(localStorage.getItem('dailyLog')) || {};
+        const satisfiedLog = JSON.parse(localStorage.getItem('satisfiedLog')) || {};
+        const incomeRate = 10;
+        let dailyGoal = parseInt(localStorage.getItem('dailyGoal')) || 10;
+        let monthlyGoal = parseInt(localStorage.getItem('monthlyGoal')) || 300;
+        let weeklyGoal = parseInt(localStorage.getItem('weeklyGoal')) || 70;
+
+        function updateDisplay() {
+            document.getElementById('questions-solved').innerText = questionsSolved;
+            document.getElementById('satisfied-solves').innerText = satisfiedSolves;
+            updateCalendar();
+            updateIncome();
+            updateGoals();
+            updateSummary();
+            updateChart();
+            saveData();
+        }
+
+        function addQuestion() {
+            questionsSolved++;
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+            if (!dailyLog[today]) {
+                dailyLog[today] = 0;
+            }
+            dailyLog[today]++;
+            updateDisplay();
+        }
+
+        function removeQuestion() {
+            if (questionsSolved > 0) {
+                questionsSolved--;
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+                if (dailyLog[today] && dailyLog[today] > 0) {
+                    dailyLog[today]--;
+                }
+                updateDisplay();
+            }
+        }
+
+        function addSatisfiedSolve() {
+            satisfiedSolves++;
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+            if (!satisfiedLog[today]) {
+                satisfiedLog[today] = 0;
+            }
+            satisfiedLog[today]++;
+            updateDisplay();
+        }
+
+        function removeSatisfiedSolve() {
+            if (satisfiedSolves > 0) {
+                satisfiedSolves--;
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+                if (satisfiedLog[today] && satisfiedLog[today] > 0) {
+                    satisfiedLog[today]--;
+                }
+                updateDisplay();
+            }
+        }
+
+        function updateCalendar() {
+            const calendarBody = document.getElementById('calendar-body');
+            calendarBody.innerHTML = '';
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            document.getElementById('month-year').innerText = new Date(currentYear, currentMonth).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+            let date = 1;
+            for (let i = 0; i < 6; i++) {
+                const row = document.createElement('tr');
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+                    if (i === 0 && j < firstDay) {
+                        cell.classList.add('inactive');
+                        row.appendChild(cell);
+                    } else if (date > daysInMonth) {
+                        break;
+                    } else {
+                        const currentDate = new Date(currentYear, currentMonth, date).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+                        cell.innerText = date;
+                        cell.classList.add(dailyLog[currentDate] ? 'active' : 'inactive');
+                        if (dailyLog[currentDate]) {
+                            cell.innerText += ` (${dailyLog[currentDate]} Q, ${satisfiedLog[currentDate] || 0} S)`;
+                        }
+                        row.appendChild(cell);
+                        date++;
+                    }
+                }
+                calendarBody.appendChild(row);
+            }
+        }
+
+        function updateIncome() {
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+            const dailyIncome = (dailyLog[today] || 0) * incomeRate;
+            document.getElementById('daily-income').innerText = `Daily Income: ${dailyIncome} TK`;
+            const monthlyIncome = Object.values(dailyLog).reduce((acc, curr) => acc + curr, 0) * incomeRate;
+            document.getElementById('monthly-income').innerText = `Monthly Income: ${monthlyIncome} TK`;
+        }
+
+        function updateGoals() {
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+            const solvedToday = dailyLog[today] || 0;
+            const solvedThisMonth = Object.values(dailyLog).reduce((acc, curr) => acc + curr, 0);
+            const solvedThisWeek = calculateWeeklySolves();
+
+            document.getElementById('daily-goal-progress').innerText = `Daily Goal: ${solvedToday} / ${dailyGoal}`;
+            document.getElementById('monthly-goal-progress').innerText = `Monthly Goal: ${solvedThisMonth} / ${monthlyGoal}`;
+            document.getElementById('weekly-goal-progress').innerText = `Weekly Goal: ${solvedThisWeek} / ${weeklyGoal}`;
+        }
+
+        function setGoals() {
+            dailyGoal = parseInt(document.getElementById('daily-goal').value);
+            monthlyGoal = parseInt(document.getElementById('monthly-goal').value);
+            weeklyGoal = parseInt(document.getElementById('weekly-goal').value);
+            localStorage.setItem('dailyGoal', dailyGoal);
+            localStorage.setItem('monthlyGoal', monthlyGoal);
+            localStorage.setItem('weeklyGoal', weeklyGoal);
+            updateGoals();
+        }
+
+        function updateSummary() {
+            const totalQuestions = Object.values(dailyLog).reduce((acc, curr) => acc + curr, 0);
+            const totalSatisfied = Object.values(satisfiedLog).reduce((acc, curr) => acc + curr, 0);
+
+            document.getElementById('total-questions').innerText = `Total Questions Solved: ${totalQuestions}`;
+            document.getElementById('total-satisfied').innerText = `Total Satisfied Solves: ${totalSatisfied}`;
+        }
+
+        function calculateWeeklySolves() {
+            const now = new Date();
+            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+            let solves = 0;
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(startOfWeek);
+                currentDate.setDate(startOfWeek.getDate() + i);
+                const formattedDate = currentDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+                if (dailyLog[formattedDate]) {
+                    solves += dailyLog[formattedDate];
+                }
+            }
+            return solves;
+        }
+
+        function saveData() {
+            localStorage.setItem('dailyLog', JSON.stringify(dailyLog));
+            localStorage.setItem('satisfiedLog', JSON.stringify(satisfiedLog));
+        }
+
+        window.onload = function() {
+            initializeChart();
+            questionsSolved = Object.values(dailyLog).reduce((acc, curr) => acc + curr, 0);
+            satisfiedSolves = Object.values(satisfiedLog).reduce((acc, curr) => acc + curr, 0);
+            updateDisplay();
+        }
+
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+
+        function previousMonth() {
+            if (currentMonth === 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else {
+                currentMonth--;
+            }
+            updateDisplay();
+        }
+
+        function nextMonth() {
+            if (currentMonth === 11) {
+                currentMonth = 0;
+                currentYear++;
+            } else {
+                currentMonth++;
+            }
+            updateDisplay();
+        }
+
+        let progressChart;
+
+        function initializeChart() {
+            const ctx = document.getElementById('progress-chart').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Questions Solved',
+                        data: [],
+                        backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        borderWidth: 1,
+                        fill: true,
+                    },
+                    {
+                        label: 'Satisfied Solves',
+                        data: [],
+                        backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        borderWidth: 1,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Count'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            const labels = Object.keys(dailyLog).sort();
+            const questionsData = labels.map(date => dailyLog[date]);
+            const satisfiedData = labels.map(date => satisfiedLog[date] || 0);
+
+            progressChart.data.labels = labels;
+            progressChart.data.datasets[0].data = questionsData;
+            progressChart.data.datasets[1].data = satisfiedData;
+            progressChart.update();
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Question Solving Tracker</h1>
+        <div class="tracker">
+            <button onclick="removeQuestion()">-</button>
+            <span id="questions-solved">0</span>
+            <button onclick="addQuestion()">+</button>
+            <button onclick="removeSatisfiedSolve()">-</button>
+            <span id="satisfied-solves">0</span>
+            <button onclick="addSatisfiedSolve()">+</button>
+        </div>
+        <div class="chart-container">
+            <div class="calendar">
+                <h2>Monthly Calendar</h2>
+                <div class="calendar-controls">
+                    <button onclick="previousMonth()">Previous</button>
+                    <span id="month-year"></span>
+                    <button onclick="nextMonth()">Next</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sun</th>
+                            <th>Mon</th>
+                            <th>Tue</th>
+                            <th>Wed</th>
+                            <th>Thu</th>
+                            <th>Fri</th>
+                            <th>Sat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calendar-body">
+                    </tbody>
+                </table>
+            </div>
+            <div class="chart-box">
+                <h2>Progress Chart</h2>
+                <canvas id="progress-chart"></canvas>
+            </div>
+        </div>
+        <div class="summary">
+            <h2>Summary</h2>
+            <p id="total-questions">Total Questions Solved: 0</p>
+            <p id="total-satisfied">Total Satisfied Solves: 0</p>
+        </div>
+        <div class="income">
+            <p id="daily-income">Daily Income: 0 TK</p>
+            <p id="monthly-income">Monthly Income: 0 TK</p>
+        </div>
+        <div class="goals">
+            <h2>Set Your Goals</h2>
+            <div class="goal-inputs">
+                <input type="number" id="daily-goal" placeholder="Daily Goal" value="10">
+                <input type="number" id="monthly-goal" placeholder="Monthly Goal" value="300">
+                <input type="number" id="weekly-goal" placeholder="Weekly Goal" value="70">
+                <button onclick="setGoals()">Set Goals</button>
+            </div>
+            <p id="daily-goal-progress">Daily Goal: 0 / 10</p>
+            <p id="weekly-goal-progress">Weekly Goal: 0 / 70</p>
+            <p id="monthly-goal-progress">Monthly Goal: 0 / 300</p>
+        </div>
+    </div>
+</body>
+</html>
