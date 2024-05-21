@@ -377,6 +377,23 @@
             progressChart.data.datasets[1].data = satisfiedData;
             progressChart.update();
         }
+        function exportData() {
+        let csvContent = "date,questions_solved,satisfied_solves\n";
+        const dates = Object.keys(dailyLog).sort();
+        dates.forEach(date => {
+            const questionsSolved = dailyLog[date] || 0;
+            const satisfiedSolves = satisfiedLog[date] || 0;
+            csvContent += `${date},${questionsSolved},${satisfiedSolves}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'question_solving_data.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
     </script>
 </head>
 <body>
@@ -440,6 +457,11 @@
             <p id="weekly-goal-progress">Weekly Goal: 0 / 70</p>
             <p id="monthly-goal-progress">Monthly Goal: 0 / 300</p>
         </div>
+        <div class="export">
+    <h2>Export Data</h2>
+    <button onclick="exportData()">Export as CSV</button>
+</div>
+
     </div>
 </body>
 </html>
